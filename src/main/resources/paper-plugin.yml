@@ -1,5 +1,0 @@
-name: ExtendedPatterns
-version: '1.0-SNAPSHOT'
-main: de.CypDasHuhn.extendedPatterns.ExtendedPatterns
-api-version: '1.21'
-depends: ['WorldEdit']
