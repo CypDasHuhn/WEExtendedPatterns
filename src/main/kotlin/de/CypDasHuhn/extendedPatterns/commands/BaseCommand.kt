@@ -19,6 +19,8 @@ fun groupsCommand(argumentDetails: ArgumentDetails): CentralArgument {
         tabCompletions = {
             val worldNames = getWorldNames(it)
 
+            val s = GroupManager.getGroupsAllMatching(worldNames).map { it.name }
+
             GroupManager.getGroupsAllMatching(worldNames).map { it.name }
         },
         argumentDetails = argumentDetails,
@@ -39,13 +41,12 @@ val command = RootArgument(
     errorMissingChildArg = { it.sender.tSend("cbt_missing_arg") },
     followingArguments = ArgumentList({
         val base = mutableListOf(
-            SimpleArgument.simple("interface", argumentDetails = ArgumentDetails(invoke = {
+            SimpleArgument.simple("interface", argumentDetails = ArgumentDetails(invoke = { info ->
                 SelectGroupInterface.openInventory(
-                    it.sender as Player,
-                    SelectGroupInterface.SelectGroupContext(
-                        getWorldNames(it),
-                        true
-                    )
+                    info.sender as Player,
+                    SelectGroupInterface.getContext(it.sender as Player).also {
+                        it.worldNames = getWorldNames(info)
+                    }
                 )
             })),
             SimpleArgument.simple(
@@ -97,6 +98,8 @@ val command = RootArgument(
                                             val groupName = it.values["group"] as String
                                             val materialList = it.values["materials"] as List<Material>
 
+                                            val s = getWorldNames(it)
+
                                             GroupManager.modifyGroup(
                                                 groupName,
                                                 getWorldNames(it),
@@ -137,7 +140,7 @@ val command = RootArgument(
                                     val groups = GroupManager.getGroups(getWorldNames(it))
                                     val materialGroups = groups
                                         .filter { it.name == groupName }
-                                        .groupBy { it.newMaterials to it.oldMaterials }
+                                        .groupBy { it.newMaterials?.joinToString() to it.oldMaterials?.joinToString() }
 
                                     lateinit var messageKey: String
                                     val messageReplacements: MutableList<Pair<String, String>> = mutableListOf()
@@ -145,34 +148,34 @@ val command = RootArgument(
                                     if (materialGroups.size == 1) {
                                         val (newMaterials, oldMaterials) = materialGroups.keys.first()
                                         if (newMaterials == null) {
-                                            messageReplacements.add("materials" to oldMaterials!!.joinToString())
+                                            messageReplacements.add("materials" to oldMaterials!!)
                                             messageKey = "group_list"
                                         } else {
-                                            messageReplacements.add("materials" to newMaterials.joinToString())
+                                            messageReplacements.add("materials" to newMaterials)
                                             if (oldMaterials != null) {
                                                 messageKey = "group_list_modified"
-                                                messageReplacements.add("oldMaterials" to oldMaterials.joinToString())
+                                                messageReplacements.add("oldMaterials" to oldMaterials)
                                             } else {
                                                 messageKey = "group_list_unregistered"
                                             }
                                         }
                                         it.sender.tSend(messageKey, *messageReplacements.toTypedArray())
                                     } else {
-                                        it.sender.tSend("group_list_multiple")
+                                        it.sender.tSend("group_list_multiple", "groupName" to groupName)
 
                                         groups.forEach { group ->
                                             messageReplacements.clear()
 
-                                            val (newMaterials, oldMaterials) = materialGroups.keys.first()
+                                            val (newMaterials, oldMaterials) = group.newMaterials?.joinToString() to group.oldMaterials?.joinToString()
                                             messageReplacements.add("worldName" to group.worldName)
                                             if (newMaterials == null) {
-                                                messageReplacements.add("materials" to oldMaterials!!.joinToString())
+                                                messageReplacements.add("materials" to oldMaterials!!)
                                                 messageKey = "group_list_entry"
                                             } else {
-                                                messageReplacements.add("materials" to newMaterials.joinToString())
+                                                messageReplacements.add("materials" to newMaterials)
                                                 if (oldMaterials != null) {
                                                     messageKey = "group_list_entry_modified"
-                                                    messageReplacements.add("oldMaterials" to oldMaterials.joinToString())
+                                                    messageReplacements.add("oldMaterials" to oldMaterials)
                                                 } else {
                                                     messageKey = "group_list_entry_unregistered"
                                                 }

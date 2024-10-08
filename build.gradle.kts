@@ -24,7 +24,7 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("com.github.CypDasHuhn:Rooster:9ad11e726d")
+    implementation("com.github.CypDasHuhn:Rooster:2fd1a0fa65")
 
     bukkitLibrary("com.google.code.gson:gson:2.10.1")
     testImplementation("com.google.code.gson:gson:2.10.1")

@@ -3,6 +3,7 @@ package de.CypDasHuhn.extendedPatterns.database
 import de.CypDasHuhn.extendedPatterns.ui.SelectGroupInterface
 import de.cypdashuhn.rooster.database.RoosterTable
 import org.bukkit.Material
+import org.bukkit.inventory.ItemStack
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -15,7 +16,7 @@ object GroupManager {
     object Groups : IntIdTable() {
         val name = varchar("name", 64)
         val worldName = varchar("world_name", 64)
-        val new_materials = text("new_materials").nullable()
+        val newMaterials = text("new_materials").nullable()
         val oldMaterials = text("old_materials").nullable()
     }
 
@@ -24,7 +25,7 @@ object GroupManager {
 
         var name by Groups.name
         var worldName by Groups.worldName
-        var newMaterials by Groups.new_materials.transform(
+        var newMaterials by Groups.newMaterials.transform(
             { it?.joinToString(",") }, // Serialize
             {
                 it?.split(",")?.mapNotNull { materialString ->
@@ -61,7 +62,7 @@ object GroupManager {
         return transaction {
             Group.all()
                 .groupBy { it.name }
-                .filter { (_, groups) -> groups.all { it.worldName in worldNames } }
+                .filter { (_, groups) -> groups.any { it.worldName in worldNames } }
                 .map { it.value.first() }
         }
     }
@@ -101,5 +102,57 @@ object GroupManager {
                 }
             }
         }
+    }
+
+    fun updateFromInventory(
+        row: Int,
+        items: List<ItemStack?>,
+        groupName: String,
+        worldNames: List<String>
+    ): List<Material> {
+        lateinit var returnMaterials: List<Material>
+        transaction {
+            worldNames.forEach {
+                val itemsWithId = items.withIndex().map { it.value to it.index + (row * 9) }
+                val group = Group.find { Groups.name eq groupName and (Groups.worldName eq it) }.first()
+                val materials = (group.newMaterials ?: group.oldMaterials!!)
+                val materialsWithId = materials.withIndex()
+
+                val newMaterials =
+                    materialsWithId.filter { it.index !in itemsWithId.map { it.second } }.map { it.value }
+                        .toMutableList()
+                itemsWithId.forEach {
+                    if (it.first != null && it.first!!.type.isBlock) {
+                        newMaterials.add(it.first!!.type)
+                    }
+                }
+                if (materials.contains(Material.AIR)) {
+                    newMaterials.add(Material.AIR)
+                }
+
+                modifyGroup(groupName, listOf(it), newMaterials.distinct())
+                
+                returnMaterials = newMaterials.distinct()
+            }
+        }
+        return returnMaterials
+    }
+
+    fun changeAirStatus(useAir: Boolean, groupName: String, worldNames: List<String>) {
+        transaction {
+            worldNames.forEach {
+                val group = Group.find { Groups.name eq groupName and (Groups.worldName eq it) }.first()
+                val materials = (group.newMaterials ?: group.oldMaterials!!).toMutableList()
+
+                if (useAir) {
+                    materials.add(Material.AIR)
+                } else {
+                    materials.remove(Material.AIR)
+                }
+
+                modifyGroup(groupName, listOf(it), materials.distinct())
+            }
+        }
+
     }
 }
